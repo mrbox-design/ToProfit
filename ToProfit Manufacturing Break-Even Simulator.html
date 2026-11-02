@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ToProfit - Manufacturing Break-Even Simulator</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0f7ff',
+                            100: '#e0effe',
+                            500: '#2563eb',
+                            600: '#1d4ed8',
+                            700: '#1e40af',
+                            900: '#1e3a8a',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+            body {
+                background: white !important;
+                color: black !important;
+            }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased font-sans min-h-screen flex flex-col">
+
+    <!-- Header / Navigation Bar -->
+    <header class="bg-slate-900 text-white border-b border-slate-800 sticky top-0 z-50 shadow-md">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-blue-500/30">
+                    <i class="fa-solid font-black fa-chart-line"></i>
+                </div>
+                <div>
+                    <span class="text-xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-indigo-200">ToProfit</span>
+                    <span class="text-xs ml-2 px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 font-medium border border-blue-500/30">v2.0 INR</span>
+                </div>
+            </div>
+            
+            <div class="flex items-center space-x-3">
+                <button onclick="exportCSV()" class="no-print hidden sm:inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition">
+                    <i class="fa-solid fa-file-csv text-emerald-400"></i>
+                    <span>Export CSV</span>
+                </button>
+                <button onclick="window.print()" class="no-print inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white transition shadow-md shadow-blue-600/20">
+                    <i class="fa-solid fa-print"></i>
+                    <span>Print / Save PDF</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-grow w-full space-y-6">
+
+        <!-- Top Banner / Preset Selection -->
+        <div class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-2xl p-4 sm:p-6 text-white shadow-xl relative overflow-hidden border border-slate-800">
+            <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                    <h1 class="text-xl sm:text-2xl font-bold">Manufacturing Break-Even & Profitability Simulator</h1>
+                    <p class="text-slate-400 text-xs sm:text-sm mt-1 max-w-2xl">
+                        Evaluate manufacturing production costs, contribution margins, break-even volume, and net revenue in Indian Rupees (₹).
+                    </p>
+                </div>
+
+                <!-- Presets Dropdown -->
+                <div class="flex items-center space-x-2 bg-slate-800/80 p-2 rounded-xl border border-slate-700/80 backdrop-blur-sm self-start md:self-auto">
+                    <i class="fa-solid fa-wand-magic-sparkles text-amber-400 text-sm pl-2"></i>
+                    <span class="text-xs text-slate-300 font-medium whitespace-nowrap">Presets:</span>
+                    <select id="presetSelector" onchange="applyPreset(this.value)" class="bg-slate-900 text-xs font-semibold text-white rounded-lg px-2.5 py-1.5 border border-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="small_component">Small Component Batch</option>
+                        <option value="medium_assembly">Medium Machinery Part</option>
+                        <option value="large_equipment">Large Industrial Equipment</option>
+                        <option value="custom">Custom Parameters</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Notification Bar (Alerts / Warnings) -->
+        <div id="alertBanner" class="hidden p-4 rounded-xl text-sm font-medium transition-all"></div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+            <!-- LEFT SIDEBAR: INPUT CONTROLS (5 Cols) -->
+            <div class="lg:col-span-5 space-y-6">
+
+                <!-- Input Parameters Card -->
+                <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 space-y-4">
+                    <h2 class="text-sm font-bold text-slate-800 uppercase tracking-wider mb-2 flex items-center border-b border-slate-100 pb-3">
+                        <i class="fa-solid fa-sliders text-blue-600 mr-2"></i> Cost & Revenue Inputs
+                    </h2>
+                    
+                    <div class="space-y-4">
+                        <!-- Fixed Cost -->
+                        <div>
+                            <label for="fixedCost" class="block text-xs font-semibold text-slate-700 mb-1">
+                                Total Fixed Costs (₹)
+                            </label>
+                            <div class="relative">
+                                <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 font-bold text-sm">₹</span>
+                                <input type="number" id="fixedCost" value="500000" min="0" step="5000" oninput="calculateAll()" class="w-full pl-8 pr-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none font-semibold text-slate-800">
+                            </div>
+                            <span class="text-[10px] text-slate-400">Machinery setup, plant rent, fixed overheads</span>
+                        </div>
+
+                        <!-- Variable Cost per Unit -->
+                        <div>
+                            <label for="variableCost" class="block text-xs font-semibold text-slate-700 mb-1">
+                                Variable Cost per Unit (₹)
+                            </label>
+                            <div class="relative">
+                                <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 font-bold text-sm">₹</span>
+                                <input type="number" id="variableCost" value="350" min="0" step="10" oninput="calculateAll()" class="w-full pl-8 pr-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none font-semibold text-slate-800">
+                            </div>
+                            <span class="text-[10px] text-slate-400">Raw materials, direct labor, consumables per unit</span>
+                        </div>
+
+                        <!-- Selling Price per Unit -->
+                        <div>
+                            <label for="sellingPrice" class="block text-xs font-semibold text-slate-700 mb-1">
+                                Selling Price per Unit (₹)
+                            </label>
+                            <div class="relative">
+                                <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 font-bold text-sm">₹</span>
+                                <input type="number" id="sellingPrice" value="600" min="0.01" step="10" oninput="calculateAll()" class="w-full pl-8 pr-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none font-semibold text-slate-800">
+                            </div>
+                            <span class="text-[10px] text-slate-400">Price charged per finished unit</span>
+                        </div>
+
+                        <!-- Target Production Volume -->
+                        <div>
+                            <div class="flex justify-between items-center mb-1">
+                                <label for="targetVolume" class="text-xs font-semibold text-slate-700">Target Production Volume (Units)</label>
+                                <span class="text-xs font-bold text-blue-600" id="targetVolumeVal">3,000 units</span>
+                            </div>
+                            <input type="range" id="targetVolume" min="100" max="10000" step="100" value="3000" oninput="calculateAll()" class="w-full accent-blue-600 cursor-pointer h-2 bg-slate-200 rounded-lg">
+                            <div class="flex justify-between text-[10px] text-slate-400 mt-1">
+                                <span>100</span>
+                                <span>5,000</span>
+                                <span>10,000</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- RIGHT CONTENT AREA: DASHBOARD & VISUALS (7 Cols) -->
+            <div class="lg:col-span-7 space-y-6">
+
+                <!-- KPI Metrics Cards Grid -->
+                <div class="grid grid-cols-2 gap-4">
+                    
+                    <!-- Contribution Margin -->
+                    <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 relative overflow-hidden">
+                        <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Contribution Margin / Unit</div>
+                        <div class="text-xl sm:text-2xl font-extrabold text-slate-900 mt-1" id="kpiMargin">₹250</div>
+                        <div class="text-[11px] font-medium text-slate-500 mt-1" id="kpiMarginPct">41.7% of selling price</div>
+                        <div class="absolute top-0 right-0 w-2 h-full bg-indigo-500"></div>
+                    </div>
+
+                    <!-- Break-Even Volume -->
+                    <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 relative overflow-hidden">
+                        <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Break-Even Point (Units)</div>
+                        <div class="text-xl sm:text-2xl font-extrabold text-slate-900 mt-1" id="kpiBEUnits">2,000 <span class="text-xs font-normal text-slate-500">units</span></div>
+                        <div class="text-[11px] font-medium text-slate-500 mt-1" id="kpiBERev">Revenue: ₹12,00,000</div>
+                        <div class="absolute top-0 right-0 w-2 h-full bg-blue-500"></div>
+                    </div>
+
+                    <!-- Break-Even Revenue -->
+                    <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 relative overflow-hidden">
+                        <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Break-Even Revenue</div>
+                        <div class="text-xl sm:text-2xl font-extrabold text-slate-900 mt-1" id="kpiBERevenue">₹12,00,000</div>
+                        <div class="text-[11px] font-medium text-slate-500 mt-1">Minimum sales for zero loss</div>
+                        <div class="absolute top-0 right-0 w-2 h-full bg-amber-500"></div>
+                    </div>
+
+                    <!-- Total Profit / Loss at Target Volume -->
+                    <div id="profitCard" class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 relative overflow-hidden">
+                        <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider" id="kpiProfitLabel">Projected Net Profit</div>
+                        <div class="text-xl sm:text-2xl font-extrabold text-emerald-600 mt-1" id="kpiProfitVal">₹2,50,000</div>
+                        <div class="text-[11px] font-medium text-slate-500 mt-1" id="kpiProfitSub">At target volume of 3,000 units</div>
+                        <div id="profitIndicator" class="absolute top-0 right-0 w-2 h-full bg-emerald-500"></div>
+                    </div>
+
+                </div>
+
+                <!-- Recommendation Callout Card -->
+                <div id="recommendationCard" class="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex items-start space-x-3">
+                    <div class="p-2 bg-emerald-600 text-white rounded-xl text-lg flex-shrink-0" id="recIcon">
+                        <i class="fa-solid fa-circle-check"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-xs font-bold uppercase tracking-wider text-emerald-900" id="recTitle">Production Viability Summary</h3>
+                        <p class="text-xs text-emerald-800 mt-0.5" id="recBody">Loading summary...</p>
+                    </div>
+                </div>
+
+                <!-- Chart Container Card -->
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+                        <div>
+                            <h2 class="text-sm font-bold text-slate-800 uppercase tracking-wider">Break-Even Analysis Chart (₹)</h2>
+                            <p class="text-xs text-slate-500">Fixed Cost, Total Manufacturing Cost vs Total Revenue</p>
+                        </div>
+                    </div>
+                    
+                    <div class="relative w-full h-72 sm:h-80">
+                        <canvas id="breakEvenChart"></canvas>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+
+        <!-- LOWER SECTION: VOLUME BREAKDOWN TABLE -->
+        <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4 pb-3 border-b border-slate-100">
+                <div>
+                    <h2 class="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center">
+                        <i class="fa-solid fa-table text-blue-600 mr-2"></i> Production Volume & Revenue Matrix
+                    </h2>
+                    <p class="text-xs text-slate-500">Financial performance from 25% to 200% of target production volume</p>
+                </div>
+                <span class="text-xs font-medium text-slate-500 bg-slate-100 px-3 py-1 rounded-full self-start sm:self-auto">
+                    Target Volume: <strong id="tableTargetVal" class="text-slate-800">3,000 units</strong>
+                </span>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs">
+                    <thead>
+                        <tr class="bg-slate-50 text-slate-600 border-b border-slate-200 font-semibold uppercase tracking-wider">
+                            <th class="py-3 px-3">Target %</th>
+                            <th class="py-3 px-3">Volume (Units)</th>
+                            <th class="py-3 px-3">Fixed Cost (₹)</th>
+                            <th class="py-3 px-3">Variable Cost (₹)</th>
+                            <th class="py-3 px-3">Total Cost (₹)</th>
+                            <th class="py-3 px-3">Total Revenue (₹)</th>
+                            <th class="py-3 px-3 text-right">Net Profit / Loss (₹)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="breakdownTableBody" class="divide-y divide-slate-100 font-medium">
+                        <!-- Populated by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-slate-900 text-slate-400 text-xs border-t border-slate-800 py-6 mt-10">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row justify-between items-center gap-3 text-center sm:text-left">
+            <div>
+                <p class="font-semibold text-slate-300">ToProfit — Manufacturing Engineering Simulator</p>
+                <p class="text-slate-500 text-[11px] mt-0.5">Automated commercialization and unit economics analysis tool.</p>
+            </div>
+            <div class="flex items-center space-x-4 text-slate-400">
+                <span><i class="fa-solid fa-indian-rupee-sign text-emerald-400 mr-1"></i> Currency: INR (₹)</span>
+                <span><i class="fa-solid fa-bolt text-amber-400 mr-1"></i> Fast Client-Side Calculations</span>
+            </div>
+        </div>
+    </footer>
+
+    <!-- JavaScript Application Logic -->
+    <script>
+        // Preset Configurations in INR (₹)
+        const PRESETS = {
+            small_component: {
+                sellingPrice: 600,
+                targetVolume: 3000,
+                fixedCost: 500000,
+                variableCost: 350
+            },
+            medium_assembly: {
+                sellingPrice: 4500,
+                targetVolume: 1200,
+                fixedCost: 1800000,
+                variableCost: 2200
+            },
+            large_equipment: {
+                sellingPrice: 85000,
+                targetVolume: 150,
+                fixedCost: 4500000,
+                variableCost: 42000
+            }
+        };
+
+        let chartInstance = null;
+
+        // Initialize App
+        window.addEventListener('DOMContentLoaded', () => {
+            initChart();
+            applyPreset('small_component');
+        });
+
+        // Apply Preset Scenario
+        function applyPreset(presetKey) {
+            if (presetKey === 'custom') return;
+
+            const preset = PRESETS[presetKey];
+            if (!preset) return;
+
+            document.getElementById('sellingPrice').value = preset.sellingPrice;
+            document.getElementById('targetVolume').value = preset.targetVolume;
+            document.getElementById('fixedCost').value = preset.fixedCost;
+            document.getElementById('variableCost').value = preset.variableCost;
+
+            calculateAll();
+        }
+
+        // Format Currency in INR Style
+        function formatINR(val) {
+            return '₹' + Math.round(val).toLocaleString('en-IN');
+        }
+
+        // Main Calculation Engine
+        function calculateAll() {
+            const P = parseFloat(document.getElementById('sellingPrice').value) || 0;
+            const TargetVol = parseInt(document.getElementById('targetVolume').value) || 0;
+            const FC = parseFloat(document.getElementById('fixedCost').value) || 0;
+            const VC = parseFloat(document.getElementById('variableCost').value) || 0;
+
+            // Labels
+            document.getElementById('targetVolumeVal').textContent = `${TargetVol.toLocaleString('en-IN')} units`;
+            document.getElementById('tableTargetVal').textContent = `${TargetVol.toLocaleString('en-IN')} units`;
+
+            // Clear previous alerts
+            const alertBanner = document.getElementById('alertBanner');
+            alertBanner.classList.add('hidden');
+            alertBanner.className = "hidden p-4 rounded-xl text-sm font-medium transition-all";
+
+            // Core Math
+            const cm = P - VC; // Contribution Margin
+            const cmPct = P > 0 ? ((cm / P) * 100).toFixed(1) : 0;
+
+            if (cm <= 0) {
+                alertBanner.classList.remove('hidden');
+                alertBanner.classList.add('bg-rose-100', 'text-rose-800', 'border', 'border-rose-300');
+                alertBanner.innerHTML = `<i class="fa-solid fa-triangle-exclamation mr-2"></i> <strong>Warning:</strong> Variable cost (${formatINR(VC)}) is equal to or higher than selling price (${formatINR(P)}). The product has a negative or zero contribution margin and will never break even.`;
+            }
+
+            const beUnits = cm > 0 ? Math.ceil(FC / cm) : Infinity;
+            const beRevenue = isFinite(beUnits) ? beUnits * P : 0;
+
+            const totalCostTarget = FC + (VC * TargetVol);
+            const totalRevenueTarget = TargetVol * P;
+            const netProfitTarget = totalRevenueTarget - totalCostTarget;
+
+            // KPI Updates
+            document.getElementById('kpiMargin').textContent = formatINR(cm);
+            document.getElementById('kpiMarginPct').textContent = `${cmPct}% of selling price`;
+
+            document.getElementById('kpiBEUnits').innerHTML = isFinite(beUnits) 
+                ? `${beUnits.toLocaleString('en-IN')} <span class="text-xs font-normal text-slate-500">units</span>` 
+                : 'N/A';
+            document.getElementById('kpiBERev').textContent = `Revenue: ${formatINR(beRevenue)}`;
+
+            document.getElementById('kpiBERevenue').textContent = isFinite(beUnits) ? formatINR(beRevenue) : 'N/A';
+
+            // Profit / Loss KPI Card Styling
+            const profitValEl = document.getElementById('kpiProfitVal');
+            const profitLabelEl = document.getElementById('kpiProfitLabel');
+            const profitIndicator = document.getElementById('profitIndicator');
+            const profitSub = document.getElementById('kpiProfitSub');
+
+            profitSub.textContent = `At target volume of ${TargetVol.toLocaleString('en-IN')} units`;
+
+            if (netProfitTarget >= 0) {
+                profitLabelEl.textContent = "Projected Net Profit";
+                profitValEl.textContent = formatINR(netProfitTarget);
+                profitValEl.className = "text-xl sm:text-2xl font-extrabold text-emerald-600 mt-1";
+                profitIndicator.className = "absolute top-0 right-0 w-2 h-full bg-emerald-500";
+            } else {
+                profitLabelEl.textContent = "Projected Net Loss";
+                profitValEl.textContent = formatINR(Math.abs(netProfitTarget));
+                profitValEl.className = "text-xl sm:text-2xl font-extrabold text-rose-600 mt-1";
+                profitIndicator.className = "absolute top-0 right-0 w-2 h-full bg-rose-500";
+            }
+
+            // Summary Callout Box
+            const recCard = document.getElementById('recommendationCard');
+            const recIcon = document.getElementById('recIcon');
+            const recTitle = document.getElementById('recTitle');
+            const recBody = document.getElementById('recBody');
+
+            if (netProfitTarget >= 0) {
+                recCard.className = "bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex items-start space-x-3";
+                recIcon.className = "p-2 bg-emerald-600 text-white rounded-xl text-lg flex-shrink-0";
+                recIcon.innerHTML = `<i class="fa-solid fa-circle-check"></i>`;
+                recTitle.className = "text-xs font-bold uppercase tracking-wider text-emerald-900";
+                recTitle.textContent = "Profitable Production Run";
+                recBody.innerHTML = `At your target volume of <strong>${TargetVol.toLocaleString('en-IN')} units</strong>, the manufacturing run yields a net profit of <strong>${formatINR(netProfitTarget)}</strong>. You exceed the break-even point by <strong>${(TargetVol - beUnits).toLocaleString('en-IN')} units</strong>.`;
+            } else {
+                recCard.className = "bg-rose-50 border border-rose-200 rounded-2xl p-4 flex items-start space-x-3";
+                recIcon.className = "p-2 bg-rose-600 text-white rounded-xl text-lg flex-shrink-0";
+                recIcon.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i>`;
+                recTitle.className = "text-xs font-bold uppercase tracking-wider text-rose-900";
+                recTitle.textContent = "Unprofitable Target Volume";
+                recBody.innerHTML = `At your target volume of <strong>${TargetVol.toLocaleString('en-IN')} units</strong>, the run results in a net loss of <strong>${formatINR(Math.abs(netProfitTarget))}</strong>. You need an additional <strong>${(beUnits - TargetVol).toLocaleString('en-IN')} units</strong> to break even.`;
+            }
+
+            // Update Graph and Table
+            updateChart(P, TargetVol, FC, VC, beUnits);
+            updateTable(P, TargetVol, FC, VC);
+        }
+
+        // Initialize Chart
+        function initChart() {
+            const ctx = document.getElementById('breakEvenChart').getContext('2d');
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: { labels: [], datasets: [] },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: { position: 'top', labels: { font: { size: 11, family: 'Inter' } } },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.dataset.label}: ₹${context.raw.toLocaleString('en-IN')}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: { display: true, text: 'Production Volume (Units)', font: { size: 11, weight: 'bold' } },
+                            grid: { color: '#f1f5f9' }
+                        },
+                        y: {
+                            title: { display: true, text: 'Amount (₹)', font: { size: 11, weight: 'bold' } },
+                            grid: { color: '#f1f5f9' },
+                            ticks: {
+                                callback: function(value) {
+                                    return '₹' + value.toLocaleString('en-IN');
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Update Chart
+        function updateChart(P, targetVol, FC, VC, beUnits) {
+            if (!chartInstance) return;
+
+            const maxVol = Math.max(targetVol * 1.6, isFinite(beUnits) ? beUnits * 1.4 : 1000);
+            const step = maxVol / 8;
+            
+            let volumes = [];
+            for (let i = 0; i <= 8; i++) {
+                volumes.push(Math.round(step * i));
+            }
+
+            if (isFinite(beUnits) && beUnits < maxVol && !volumes.includes(beUnits)) {
+                volumes.push(beUnits);
+                volumes.sort((a, b) => a - b);
+            }
+
+            const fixedCostData = volumes.map(() => FC);
+            const totalCostData = volumes.map(v => FC + (VC * v));
+            const revenueData = volumes.map(v => v * P);
+
+            chartInstance.data.labels = volumes.map(v => v.toLocaleString('en-IN'));
+            chartInstance.data.datasets = [
+                {
+                    label: 'Fixed Cost (₹)',
+                    data: fixedCostData,
+                    borderColor: '#94a3b8',
+                    borderWidth: 1.5,
+                    borderDash: [4, 4],
+                    pointRadius: 0,
+                    fill: false
+                },
+                {
+                    label: 'Total Cost (₹)',
+                    data: totalCostData,
+                    borderColor: '#ef4444',
+                    backgroundColor: 'rgba(239, 68, 68, 0.05)',
+                    borderWidth: 2.5,
+                    pointRadius: 3
+                },
+                {
+                    label: 'Total Revenue (₹)',
+                    data: revenueData,
+                    borderColor: '#10b981',
+                    backgroundColor: 'rgba(16, 185, 129, 0.05)',
+                    borderWidth: 2.5,
+                    pointRadius: 3
+                }
+            ];
+
+            chartInstance.update();
+        }
+
+        // Update Matrix Table
+        function updateTable(P, targetVol, FC, VC) {
+            const tbody = document.getElementById('breakdownTableBody');
+            tbody.innerHTML = '';
+
+            const percentages = [0.25, 0.50, 0.75, 1.00, 1.25, 1.50, 2.00];
+
+            percentages.forEach(pct => {
+                const vol = Math.round(targetVol * pct);
+                const varCostTotal = VC * vol;
+                const totalCost = FC + varCostTotal;
+                const rev = vol * P;
+                const profit = rev - totalCost;
+
+                const isTarget = pct === 1.00;
+
+                const tr = document.createElement('tr');
+                tr.className = isTarget ? 'bg-blue-50/70 font-semibold' : 'hover:bg-slate-50';
+
+                tr.innerHTML = `
+                    <td class="py-2.5 px-3">
+                        ${(pct * 100).toFixed(0)}%
+                        ${isTarget ? '<span class="ml-1 text-[10px] bg-blue-600 text-white px-1.5 py-0.5 rounded font-bold">TARGET</span>' : ''}
+                    </td>
+                    <td class="py-2.5 px-3">${vol.toLocaleString('en-IN')}</td>
+                    <td class="py-2.5 px-3">${formatINR(FC)}</td>
+                    <td class="py-2.5 px-3">${formatINR(varCostTotal)}</td>
+                    <td class="py-2.5 px-3 font-semibold text-slate-800">${formatINR(totalCost)}</td>
+                    <td class="py-2.5 px-3 font-semibold text-slate-800">${formatINR(rev)}</td>
+                    <td class="py-2.5 px-3 text-right ${profit >= 0 ? 'text-emerald-600 font-bold' : 'text-rose-600 font-bold'}">
+                        ${profit >= 0 ? '+' : ''}${formatINR(profit)}
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Export Data to CSV
+        function exportCSV() {
+            const P = parseFloat(document.getElementById('sellingPrice').value) || 0;
+            const TargetVol = parseInt(document.getElementById('targetVolume').value) || 0;
+            const FC = parseFloat(document.getElementById('fixedCost').value) || 0;
+            const VC = parseFloat(document.getElementById('variableCost').value) || 0;
+
+            let csvContent = "data:text/csv;charset=utf-8,";
+            csvContent += "ToProfit Manufacturing Break-Even Analysis (INR)\n\n";
+            csvContent += `Fixed Costs (INR),${FC}\n`;
+            csvContent += `Variable Cost per Unit (INR),${VC}\n`;
+            csvContent += `Selling Price per Unit (INR),${P}\n`;
+            csvContent += `Target Volume (Units),${TargetVol}\n\n`;
+
+            csvContent += "Volume (Units),Fixed Cost (INR),Variable Cost Total (INR),Total Cost (INR),Total Revenue (INR),Net Profit/Loss (INR)\n";
+
+            const percentages = [0.25, 0.50, 0.75, 1.00, 1.25, 1.50, 2.00];
+            percentages.forEach(pct => {
+                const vol = Math.round(TargetVol * pct);
+                const varCostTotal = VC * vol;
+                const totalCost = FC + varCostTotal;
+                const rev = vol * P;
+                const profit = rev - totalCost;
+
+                csvContent += `${vol},${FC},${varCostTotal},${totalCost},${rev},${profit}\n`;
+            });
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "ToProfit_Manufacturing_Analysis_INR.csv");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+</body>
+</html>
